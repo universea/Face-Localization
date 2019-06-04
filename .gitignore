@@ -1,0 +1,13 @@
+*.log
+*.json
+*.jpg
+*.png
+*.pts
+*.zip
+output/
+checkpoints/
+weights/
+!weights/*.sh
+dataset/coco/
+log*
+output*
