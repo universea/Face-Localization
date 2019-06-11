@@ -176,14 +176,14 @@ for image_name in image_names:
     # 待检测的图片路径
     points_name = image_name.replace('.png', '.pts')
     points    = read_points(points_name)
-
+    print(image_name)
     # 读取图片
     image = cv2.imread(image_name)
     gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
 
     result_image,result_points = make_datasets(image,gray,points)
     result_image_name = image_name.split('door/')[1]
-    print(result_image_name)
+    
     cv2.imwrite("dataset/300w_224x224/"+result_image_name,result_image)
 
     result_points_name = result_image_name.replace('.png', '.pts')

@@ -17,7 +17,7 @@ import paddle.dataset as dataset
 
 
 class TrainDataReader:
-    def __init__(self, dataset_dir, subset='train',rows=224, cols=224, shuffle=True, birdeye=True):
+    def __init__(self, dataset_dir, subset='300w_224x224',rows=224, cols=224, shuffle=True, birdeye=True):
         label_dirname = dataset_dir + subset
         print (label_dirname)
 
@@ -81,17 +81,13 @@ class TrainDataReader:
             label_name = self.label_files[self.index]
             img_name = label_name.replace('.pts', '.png')
 
-            label = []
-            with open(label_name) as file:
-                line_count = 0
-                for line in file:
-                    if "version" in line or "points" in line or "{" in line or "}" in line:
-                        continue
-                    else:
-                        loc_x, loc_y = line.strip().split(sep=" ")
-                        points.append([float(loc_x), float(loc_y)])
-                        line_count += 1
-            
+            label = self.read_points(label_name)
+            label = np.array(label)
+            #print(label)
+            #print("------------")
+            label = label.reshape(1,-1)[0]
+            #print(label.shape)
+            #print(label)
             img = cv2.imread(img_name)
             if img is None:
                 print("load img failed:", img_name)
@@ -102,7 +98,7 @@ class TrainDataReader:
             img   = cv2.resize(img, (self.cols, self.rows), interpolation=cv2.INTER_CUBIC)
         except Exception as err:
             print('warped_error: ',err)
-            img   = img.transpose((2,0,1))
+        img   = img.transpose((2,0,1))
         return img, label, label_name
 
     def get_batch(self, batch_size=1):
@@ -115,7 +111,6 @@ class TrainDataReader:
             labels.append(label)
             names.append(label_name)
             self.next_img()
-            self.augmentor += 1
         return np.array(imgs), np.array(labels), names
 
     def get_batch_generator(self, batch_size, total_step):
@@ -127,10 +122,12 @@ class TrainDataReader:
                 except Exception as err:
                     imgs, labels, names = self.get_batch(batch_size)
                     print('Generator　异常',err)
-                print(labels.shape)
+                #print('labels.shape = ',labels.shape)
+                #print('imgs.shape = ',imgs.shape)
                 imgs   = imgs.astype(np.float32)
                 labels = labels.astype(np.float32)
-                imgs  /= 255
+                imgs   /= 255.0
+                #labels /= 224.0
                 yield i, imgs, labels, names
 
         batches = do_get_batch()

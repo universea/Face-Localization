@@ -4,6 +4,7 @@
 *.png
 *.pts
 *.zip
+*.params
 output/
 checkpoints/
 weights/
@@ -11,3 +12,4 @@ weights/
 dataset/coco/
 log*
 output*
+params/

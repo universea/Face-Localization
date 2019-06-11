@@ -10,15 +10,15 @@ import paddle.fluid as fluid
 import cv2
 from collections import Counter
 
-from model.resnet import ResNet
+from model.alexnet import AlexNet
 
 from reader import TrainDataReader
 import reader
 
-#os.environ['FLAGS_fraction_of_gpu_memory_to_use'] = '0.99'
+os.environ['FLAGS_fraction_of_gpu_memory_to_use'] = '0.99'
 
 
-pretrain_model = 0 #1 means pretrain_model
+pretrain_model = 1 #1 means pretrain_model
 total_step = 150000
 path = os.getcwd()
 
@@ -26,20 +26,23 @@ path = os.getcwd()
 def create_reader(rows=224,cols=224):
 
     LaneDataset = reader.TrainDataReader
-    dataset = LaneDataset("G:\\Projects\\Face-Localization\\dataset\\", '300w',
+    dataset = LaneDataset("/home/airobot/Face-Localization/dataset/", '300w_224x224',
                             rows=224, cols=224)
     return dataset
 
-def create_model(model='',image_shape=[1024,1024],class_num=9):
+def create_model(model='',image_shape=[224,224],class_num=9):
 
     train_image = fluid.layers.data(name='img', shape=[3] + image_shape, dtype='float32')
-    train_label = fluid.layers.data(name='label', shape=image_shape + [9],dtype='float32')
+    train_label = fluid.layers.data(name='label', shape=[136],dtype='float32')
+    
+    predict = AlexNet().net(train_image)
+    print('train_image.shape = ',train_image.shape)
+    print('predict.shape = ',predict.shape)
+    print('train_label.shape = ',train_label.shape)
 
-    if model == 'ResNet':
-        predict = ResNet().net(train_image)
     loss = fluid.layers.square_error_cost(input=predict, label=train_label)
     loss = fluid.layers.reduce_mean(loss)
-
+    print('loss = ',loss.shape)
     return predict,loss
 
 def load_model(exe,program,model=''):
@@ -54,9 +57,9 @@ def save_model(exe,program,model=''):
 def train(model):
 
     predict,loss = create_model(model='ResNet')
-    optimizer = fluid.optimizer.Adam(learning_rate=1e-4)
+    optimizer = fluid.optimizer.Adam(learning_rate=1e-5)
     optimizer.minimize(loss)
-    place = fluid.CPUPlace()
+    place = fluid.CUDAPlace(0)
     exe = fluid.Executor(place)
 
     exe.run(fluid.default_startup_program())
@@ -69,14 +72,14 @@ def train(model):
         print("load succeed")
 
     def trainLoop():
-        batches = DataSet.get_batch_generator(1, total_step)
+        batches = DataSet.get_batch_generator(100, total_step)
 
         for i, imgs, labels, names in batches:
             preTime = time.time()
             result = exe.run(fluid.default_main_program(),
                             feed={'img': imgs,
                                     'label': labels},
-                           fetch_list=[loss,predict,iou])
+                           fetch_list=[loss,predict])
             nowTime = time.time()
 
 
