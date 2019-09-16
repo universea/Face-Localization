@@ -1,3 +1,4 @@
+# -*- coding:UTF-8 -*-
 import sys
 import cv2
 import six
@@ -6,7 +7,6 @@ import math
 import time
 import numpy as np
 from tqdm import tqdm
-
 # 计算两个框的iou
 def compute_iou(rec1, rec2):
     """
@@ -161,16 +161,16 @@ def make_datasets(image,gray,points):
     return slip_image,points_translate.T
 
 image_names = []
-for image_name in os.listdir("dataset/300w/01_Indoor"):
+for image_name in os.listdir("data/data7426/300w/01_Indoor"):
     if image_name.split('.')[-1] in ['png']:
-        image_names.append("dataset/300w/01_Indoor/"+image_name)
-for image_name in os.listdir("dataset/300w/02_Outdoor"):
+        image_names.append("data/data7426/300w/01_Indoor/"+image_name)
+for image_name in os.listdir("data/data7426/300w/02_Outdoor"):
     if image_name.split('.')[-1] in ['png']:
-        image_names.append("dataset/300w/02_Outdoor/"+image_name)
+        image_names.append("data/data7426/300w/02_Outdoor/"+image_name)
 print(image_names)
 
 # 获取训练好的人脸的参数数据，这里直接从GitHub上使用默认值
-face_cascade = cv2.CascadeClassifier(r'./haarcascade_frontalface_default.xml')
+face_cascade = cv2.CascadeClassifier(r'work/Face-Localization/haarcascade_frontalface_default.xml')
 
 for image_name in image_names:
     # 待检测的图片路径
@@ -184,11 +184,11 @@ for image_name in image_names:
     result_image,result_points = make_datasets(image,gray,points)
     result_image_name = image_name.split('door/')[1]
     
-    cv2.imwrite("dataset/300w_224x224/"+result_image_name,result_image)
+    cv2.imwrite("data/data7426/300w_224x224/"+result_image_name,result_image)
 
     result_points_name = result_image_name.replace('.png', '.pts')
 
-    with open("dataset/300w_224x224/"+result_points_name, 'w+') as f:
+    with open("data/data7426/300w_224x224/"+result_points_name, 'w+') as f:
         f.write("version: 1"+'\n')   #加\n换行显示
         f.write("n_points: 68"+'\n')   #加\n换行显示
         f.write("{"+'\n')   #加\n换行显示
