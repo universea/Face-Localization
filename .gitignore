@@ -13,3 +13,8 @@ dataset/coco/
 log*
 output*
 params/
+inference/
+data/WFLW/
+data/test_data/
+data/train_data/
+

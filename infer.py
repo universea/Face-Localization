@@ -10,7 +10,7 @@ import paddle.fluid as fluid
 import cv2
 from collections import Counter
 
-from model.alexnet import AlexNet
+from model.mobilenetv2 import build_model
 
 os.environ['FLAGS_fraction_of_gpu_memory_to_use'] = '0.99'
 
@@ -26,57 +26,65 @@ def draw_landmark_point(image, points):
         cv2.circle(image, (int(point[0]), int(
             point[1])), 1, (0, 255, 0), -1, cv2.LINE_AA)
 
-def create_model(model='',image_shape=[224,224],class_num=9):
+def create_model(model='',image_shape=[112,112],class_num=98):
 
-    train_image = fluid.layers.data(name='img', shape=[3] + image_shape, dtype='float32')
+    img = fluid.layers.data(name='img', shape=[3] + image_shape, dtype='float32')
     
-    predict = AlexNet().net(train_image)
-    print('train_image.shape = ',train_image.shape)
-    return predict
+    landmarks_pre,angles_pre = build_model(img)
+
+    print('img.shape = ',img.shape)
+
+    
+    return landmarks_pre,angles_pre
 
 def load_model(exe,program,model=''):
-    if model == 'ResNet':
-        fluid.io.load_params(executor=exe, dirname="", filename=path+'/params/ResNet.params', main_program=program)
-
+    if model == 'mobilenetv2':
+        fluid.io.load_params(executor=exe, dirname="", filename=path+'/params/mobilenetv2.params', main_program=program)
+        print('load model succeed')
 
 def infer(model):
 
-    predict = create_model(model='ResNet')
-    place = fluid.CPUPlace()
+    #landmarks_pre,angles_pre = create_model(model='ResNet')
+
+    place = fluid.CUDAPlace(0)
     exe = fluid.Executor(place)
 
-    exe.run(fluid.default_startup_program())
-    fluid.memory_optimize(fluid.default_main_program())
-    load_model(exe,fluid.default_main_program(),model=model)
-    print("load model succeed")
+
+    [inference_program, feed_target_names, fetch_targets] = (fluid.io.load_inference_model(dirname=path+'/inference', executor=exe))
+
 
     imgs = []
 
-    image = cv2.imread("/home/airobot/Face-Localization/dataset/300w_224x224/indoor_012.png")
-    image_224   = cv2.resize(image, (224,224), interpolation=cv2.INTER_CUBIC)
-    image_224   = image_224.transpose((2,0,1))
-    imgs.append(image_224)
-    imgs = np.array(imgs)
-    imgs   = imgs.astype(np.float32)
-    imgs   /= 255.0
-    result = exe.run(fluid.default_main_program(),
-                    feed={'img': imgs},
-                    fetch_list=[predict])
+    img = cv2.imread("data/test_data/imgs/666_50_Celebration_Or_Party_houseparty_50_27_0.png")
+    print('img.shape',img.shape)
     
-    points = result[0]
-    points = points.reshape(-1,2)
+    image = cv2.resize(img, (112, 112))
+    
+    image   = image.transpose((2,0,1))
+    imgs.append(image)
+    imgs = np.array(imgs)
+    imgs = imgs.astype(np.float32)
+    imgs /= 255.0
+    
+    result = exe.run(inference_program,
+                    feed={feed_target_names[0]: imgs},
+                    fetch_list=fetch_targets)
 
-    draw_landmark_point(image,points)
-    cv2.imshow("image!",image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
+    pre_landmark = result[0]
+    print(pre_landmark.shape)
+    pre_landmark = pre_landmark.reshape(-1, 2) 
+    print(pre_landmark)
+    pre_landmark = pre_landmark * [112, 112]
+    
+    for (x, y) in pre_landmark.astype(np.int32):
+        cv2.circle(img, (x, y), 1, (0, 0, 255))
+    cv2.imwrite("infer.jpg", img)
 
 
 if __name__ == "__main__":
     parse = argparse.ArgumentParser(description='')
     parse.add_argument('--model', help='model name', nargs='?')
     args = parse.parse_args()
-    model = "ResNet"
+    model = "mobilenetv2"
     #DataSet = create_reader()
     infer(model)

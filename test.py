@@ -12,10 +12,8 @@ from collections import Counter
 from scipy.integrate import simps
 from matplotlib import pyplot as plt
 
+
 from model.mobilenetv2 import build_model
-
-#from model.mobilenetv3 import build_model
-
 
 from data.WLFW import WLFWDataReader
 import data.WLFW
@@ -26,7 +24,7 @@ os.environ['FLAGS_fraction_of_gpu_memory_to_use'] = '0.99'
 
 
 pretrain_model = 1 #1 means pretrain_model
-epochs = 10
+epochs = 3
 total_step = 150000 * epochs
 path = os.getcwd()
 
@@ -45,20 +43,23 @@ def create_model(model='',image_shape=[112,112],class_num=98):
     euler_angle = fluid.layers.data(name='euler_angle', shape=[3],dtype='float32')
     
     landmarks_pre,angles_pre = build_model(img)
-    
-    weighted_loss, loss = Loss().PFLDLoss(attribute, landmark, euler_angle, angles_pre, landmarks_pre, 512)
-    
-    #loss = Loss().wing_loss(landmark, landmarks_pre, w=10.0, epsilon=2.0, N_LANDMARK = 98)
-    #loss =  Loss().mse_loss(landmark, landmarks_pre)
-    
+    weighted_loss, loss = Loss().PFLDLoss(attribute, landmark, euler_angle, angles_pre, landmarks_pre, 250)
+
     print('img.shape = ',img.shape)
     print('landmark.shape = ',landmark.shape)
     print('euler_angle.shape = ',euler_angle.shape)
     print('attribute.shape = ',attribute.shape)
     
-    print('loss = ',loss.shape)
-    print('weighted_loss = ',weighted_loss.shape)
     return landmarks_pre,angles_pre,weighted_loss,loss
+
+def load_model(exe,program,model=''):
+    if model == 'mobilenetv2':
+        fluid.io.load_params(executor=exe, dirname="", filename=path+'/params/mobilenetv2.params', main_program=program)
+
+
+def save_model(exe,program,model=''):
+    if model == 'mobilenetv2':
+        fluid.io.save_params(executor=exe, dirname="", filename=path+'/params/mobilenetv2.params', main_program=program)
 
 def compute_nme(preds, target):
     """ preds/target:: numpy array, shape is (N, L, 2)
@@ -99,21 +100,10 @@ def compute_auc(errors, failureThreshold, step=0.0001, showCurve=False):
 
     return AUC, failureRate
 
-def load_model(exe,program,model=''):
-    if model == 'mobilenetv2':
-        fluid.io.load_params(executor=exe, dirname="", filename=path+'/params/mobilenetv2.params', main_program=program)
-
-
-def save_model(exe,program,model=''):
-    if model == 'mobilenetv2':
-        fluid.io.save_params(executor=exe, dirname="", filename=path+'/params/mobilenetv2.params', main_program=program)
-
-def train(model,DataSet):
+def test(model,DataSet):
 
     landmarks_pre,angles_pre,weighted_loss,loss = create_model(model='ResNet')
-    
-    optimizer = fluid.optimizer.Adam(learning_rate=0.0001)
-    optimizer.minimize(weighted_loss)
+
     place = fluid.CUDAPlace(0)
     exe = fluid.Executor(place)
 
@@ -127,8 +117,10 @@ def train(model,DataSet):
         print("load succeed")
 
     def trainLoop():
-        batches = DataSet.get_batch_generator(512, total_step)
-
+        batches = DataSet.get_batch_generator(250, 10)
+        
+        nme_list = []
+        
         for i, imgs, landmarks_gt, attributes_gt, euler_angles_gt in batches:
             preTime = time.time()
             result = exe.run(fluid.default_main_program(),
@@ -140,31 +132,31 @@ def train(model,DataSet):
             nowTime = time.time()
             
             landmarks = result[2]
+            #print(landmarks)
             #print('gt',landmarks_gt.shape)
             #print('pre',landmarks.shape)
             landmarks = landmarks.reshape(landmarks.shape[0], -1, 2) # landmark 
             landmarks_gt = landmarks_gt.reshape(landmarks_gt.shape[0], -1, 2)# landmarks_gt
+
+            nme_temp = compute_nme(landmarks, landmarks_gt)
+            for item in nme_temp:
+                nme_list.append(item)
             
-            if i % 1000 == 0 and i!= 0:
-                print("Model saved")
-                save_model(exe,fluid.default_main_program(),model=model)
 
             if i % 2 == 0:
-                nme_list = []
-                nme_temp = compute_nme(landmarks, landmarks_gt)
-                for item in nme_temp:
-                    nme_list.append(item)
+                print("step {:d},loss {:.6f},step_time: {:.3f}".format(
+                    i,result[1][0],nowTime - preTime))
                     
-                # nme
-                #print('nme: {:.4f}'.format(np.mean(nme_list)))
-                # auc and failure rate
-                failureThreshold = 0.1
-                auc, failure_rate = compute_auc(nme_list, failureThreshold)
-                #print('auc @ {:.1f} failureThreshold: {:.4f}'.format(auc,failureThreshold))
-                #print('failure_rate: {:}'.format(failure_rate))
-                
-                print("step {:d},weighted_loss {:.6f},loss {:.6f},nme: {:.4f},auc {:.1f}, failure_rate: {:}, failureThreshold: {:.4f},step_time: {:.3f}".format(
-                    i,result[0][0],result[1][0],np.mean(nme_list),auc,failure_rate,failureThreshold,nowTime - preTime))
+                    
+        fluid.io.save_inference_model(dirname=path+'/inference', feeded_var_names=['img'], target_vars=[landmarks_pre,angles_pre], executor=exe)
+ 
+        # nme
+        print('nme: {:.4f}'.format(np.mean(nme_list)))
+        # auc and failure rate
+        failureThreshold = 0.1
+        auc, failure_rate = compute_auc(nme_list, failureThreshold)
+        print('auc @ {:.1f} failureThreshold: {:.4f}'.format(failureThreshold, auc))
+        print('failure_rate: {:}'.format(failure_rate))
 
     trainLoop()
 
@@ -175,4 +167,4 @@ if __name__ == "__main__":
     args = parse.parse_args()
     model = "mobilenetv2"
     train_dataset,test_dataset = create_reader()
-    train(model,train_dataset)
+    test(model,test_dataset)
