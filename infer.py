@@ -53,9 +53,9 @@ def infer(model):
     [inference_program, feed_target_names, fetch_targets] = (fluid.io.load_inference_model(dirname=path+'/inference', executor=exe))
 
 
-    imgs = []
+    imgs = [] #work/Face-Localization/data/test_data/imgs/7_35_Basketball_playingbasketball_35_872_0.png
 
-    img = cv2.imread("data/test_data/imgs/666_50_Celebration_Or_Party_houseparty_50_27_0.png")
+    img = cv2.imread("data/test_data/imgs/7_35_Basketball_playingbasketball_35_872_0.png")
     print('img.shape',img.shape)
     
     image = cv2.resize(img, (112, 112))

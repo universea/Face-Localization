@@ -51,15 +51,16 @@ def create_model(model='',image_shape=[112,112],class_num=98):
     print('attribute.shape = ',attribute.shape)
     
     return landmarks_pre,angles_pre,weighted_loss,loss
-
+    
 def load_model(exe,program,model=''):
     if model == 'mobilenetv2':
-        fluid.io.load_params(executor=exe, dirname="", filename=path+'/params/mobilenetv2.params', main_program=program)
-
-
-def save_model(exe,program,model=''):
-    if model == 'mobilenetv2':
-        fluid.io.save_params(executor=exe, dirname="", filename=path+'/params/mobilenetv2.params', main_program=program)
+        pretrained_model = path+"/params/mobilenetv2"
+        def if_exist(var):
+            return os.path.exists(os.path.join(pretrained_model, var.name))
+        fluid.io.load_vars(exe, pretrained_model, main_program=program,
+                           predicate=if_exist)
+    elif model == 'mobilenetv3':
+        fluid.io.load_params(executor=exe, dirname="", filename=path+'/params/mobilenetv3.params', main_program=program)
 
 def compute_nme(preds, target):
     """ preds/target:: numpy array, shape is (N, L, 2)

@@ -74,7 +74,8 @@ class MobileNetV2():
             print('conv' + str(i)+".shape",input.shape)
 
         x1 = features['conv6']
-
+        print("x1.shape",x1.shape)
+        
         x2 = self.conv_bn_layer(
                     input=x1,
                     num_filters=int(32 * scale),
@@ -120,8 +121,25 @@ class MobileNetV2():
         print("s2.shape",s2.shape) 
         s3 = x3
         print("s3.shape",s3.shape) 
-        out = features['conv3']
         
+        out = features['conv3']
+        '''
+        s1 = fluid.layers.pool2d(input=x1, pool_size=14, pool_type='avg', global_pooling=True, name='s1')
+        s2 = fluid.layers.pool2d(input=x2, pool_size= 7, pool_type='avg', global_pooling=True, name='s2')
+        s3 = x3
+        print("s1.shape",s1.shape)   
+        print("s2.shape",s2.shape)   
+        print("s3.shape",s3.shape)   
+        
+        s1 = fluid.layers.flatten(s1)
+        s2 = fluid.layers.flatten(s2)
+        s3 = fluid.layers.flatten(s3)
+        
+        print("s1.shape",s1.shape)   
+        print("s2.shape",s2.shape)   
+        print("s3.shape",s3.shape)    
+        '''
+
         multi_scale = fluid.layers.concat(input=[s1,s2,s3],axis=1)
         print("multi_scale.shape",multi_scale.shape)
 
