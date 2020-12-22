@@ -6,7 +6,7 @@
 
 ```
 conda create --name paddlepaddle python=3.7
-conda activate pysot
+conda activate paddlepaddle
 pip install paddlepaddle-gpu
 pip install numpy
 pip install opencv-python
